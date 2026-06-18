@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # PurePicks - AI Ingredient & Allergy Scanner (v1.0)
 
 **Know what's in everything you use.**
@@ -39,4 +38,3 @@ An AI-powered ingredient scanner that tells you if skin, hair, or food products 
 *Know what's in everything you use, in your language.*
 
 Made with ❤️ for transparency and privacy.
-=======
