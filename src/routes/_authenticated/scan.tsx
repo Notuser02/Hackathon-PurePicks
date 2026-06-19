@@ -41,13 +41,39 @@ function ScanPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchProfile().then((p) => {
-      if (!p || !p.completed) {
-        navigate({ to: "/onboarding" });
+    (async () => {
+      try {
+        const p = await fetchProfile();
+        if (p && p.completed && p.skin_type && p.hair_type) {
+          setProfile(p);
+          return;
+        }
+      } catch (e) {
+        // ignore and fall back to local
+      }
+
+      // Fallback: check local profile
+      const { loadProfile: loadLocalProfile } = await import("@/lib/profile-store");
+      const local = loadLocalProfile();
+      if (local && local.completed && local.skinType && local.hairType) {
+        // Convert local shape to ProfileRow-like object
+        const localRow = {
+          user_id: "local",
+          allergies: local.allergies ?? [],
+          skin_type: local.skinType,
+          skin_notes: local.skinNotes,
+          hair_type: local.hairType,
+          hair_notes: local.hairNotes,
+          language: (local as any).language ?? "English",
+          completed: !!local.completed,
+        } as ProfileRow;
+        setProfile(localRow);
         return;
       }
-      setProfile(p);
-    });
+
+      // No completed profile, redirect to onboarding
+      navigate({ to: "/onboarding" });
+    })();
   }, [fetchProfile, navigate]);
 
   const onFile = async (file: File) => {

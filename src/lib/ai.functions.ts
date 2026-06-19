@@ -1,13 +1,52 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const LOVABLE_GATEWAY = "https://openrouter.ai/api/v1/chat/completions";
+const LOVABLE_MODEL = "openrouter/free";
+const OPENAI_GATEWAY = "https://api.openai.com/v1/chat/completions";
+const OPENAI_MODEL = "gpt-4o-mini";
+const HUGGINGFACE_GATEWAY = "https://api-inference.huggingface.co/models";
+const HUGGINGFACE_TEXT_MODEL = "google/flan-t5-large";
 
-async function callGateway(body: unknown) {
+function getHuggingFaceResponseText(json: any) {
+  if (!json) return "";
+  if (typeof json === "string") return json;
+  if (Array.isArray(json)) {
+    if (typeof json[0] === "string") return json[0];
+    return json[0]?.generated_text ?? json[0]?.text ?? "";
+  }
+  return json.generated_text ?? json.text ?? "";
+}
+
+function buildHuggingFacePrompt(body: any) {
+  const messages = Array.isArray(body?.messages) ? body.messages : [];
+  return messages
+    .map((message: any) => {
+      let content = message.content;
+      if (typeof content !== "string") {
+        if (Array.isArray(content)) {
+          content = content
+            .map((item) => {
+              if (typeof item === "string") return item;
+              if (typeof item?.text === "string") return item.text;
+              if (typeof item?.content === "string") return item.content;
+              if (item?.type === "image_url") return item.image_url?.url ?? "";
+              return JSON.stringify(item);
+            })
+            .join(" ");
+        } else {
+          content = JSON.stringify(content);
+        }
+      }
+      return `${message.role.toUpperCase()}: ${content}`;
+    })
+    .join("\n\n");
+}
+
+async function callLovable(body: unknown) {
   const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("AI gateway is not configured.");
-  const res = await fetch(GATEWAY, {
+  if (!key) throw new Error("Lovable API key is not configured.");
+  const res = await fetch(LOVABLE_GATEWAY, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -15,6 +54,7 @@ async function callGateway(body: unknown) {
     },
     body: JSON.stringify(body),
   });
+
   if (!res.ok) {
     const text = await res.text();
     if (res.status === 429) throw new Error("Rate limited. Try again shortly.");
@@ -27,6 +67,69 @@ async function callGateway(body: unknown) {
     choices?: { message?: { content?: string } }[];
   };
   return json.choices?.[0]?.message?.content ?? "";
+}
+
+async function callHuggingFace(body: any) {
+  const key = process.env.HUGGINGFACE_API_KEY;
+  if (!key) throw new Error("Hugging Face API key is not configured.");
+  const prompt = buildHuggingFacePrompt(body);
+  const res = await fetch(`${HUGGINGFACE_GATEWAY}/${HUGGINGFACE_TEXT_MODEL}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 500 } }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 429) throw new Error("Rate limited. Try again shortly.");
+    console.error("Hugging Face generation error", res.status, text);
+    throw new Error(`Hugging Face generation error (${res.status})`);
+  }
+
+  const json = await res.json();
+  return getHuggingFaceResponseText(json);
+}
+
+async function callOpenAI(body: unknown) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OpenAI API key is not configured.");
+  const res = await fetch(OPENAI_GATEWAY, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ model: OPENAI_MODEL, ...body }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 429) throw new Error("Rate limited. Try again shortly.");
+    console.error("OpenAI gateway error", res.status, text);
+    throw new Error(`OpenAI gateway error (${res.status})`);
+  }
+  const json = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  return json.choices?.[0]?.message?.content ?? "";
+}
+
+async function callGateway(body: unknown) {
+  if (process.env.LOVABLE_API_KEY) {
+    return callLovable(body);
+  }
+  if (process.env.OPENAI_API_KEY) {
+    return callOpenAI(body);
+  }
+  if (process.env.HUGGINGFACE_API_KEY) {
+    return callHuggingFace(body);
+  }
+  throw new Error(
+    "AI gateway is not configured. Set LOVABLE_API_KEY, OPENAI_API_KEY, or HUGGINGFACE_API_KEY in your environment."
+  );
 }
 
 function parseJson<T>(text: string): T {
@@ -75,7 +178,7 @@ Respond with JSON of shape:
 }`;
 
     const content = await callGateway({
-      model: MODEL,
+      model: LOVABLE_MODEL,
       messages: [
         { role: "system", content: system },
         {
@@ -163,7 +266,7 @@ Analyze the product shown. Respond with JSON (all text in ${data.language}):
 If the image is not a product label, set verdict to "caution", productName to "Unrecognized product", and explain in summary (in ${data.language}).`;
 
     const content = await callGateway({
-      model: MODEL,
+      model: LOVABLE_MODEL,
       messages: [
         { role: "system", content: system },
         {

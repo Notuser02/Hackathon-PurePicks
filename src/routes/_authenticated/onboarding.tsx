@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppNav } from "@/components/AppNav";
 import { getMyProfile, upsertMyProfile } from "@/lib/profile.functions";
+import { loadProfile as loadLocalProfile, saveProfile as saveLocalProfile, emptyProfile } from "@/lib/profile-store";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -59,16 +60,33 @@ function Onboarding() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchProfile().then((p) => {
-      if (p) {
+    (async () => {
+      try {
+        const p = await fetchProfile();
+        if (p) {
+          setForm({
+            allergies: p.allergies ?? [],
+            skinType: p.skin_type,
+            hairType: p.hair_type,
+            language: p.language ?? "English",
+          });
+          return;
+        }
+      } catch (e) {
+        // ignore server errors and fall back to local profile
+      }
+
+      // Fallback: load profile from localStorage so onboarding works without auth
+      const local = loadLocalProfile();
+      if (local) {
         setForm({
-          allergies: p.allergies ?? [],
-          skinType: p.skin_type,
-          hairType: p.hair_type,
-          language: p.language ?? "English",
+          allergies: local.allergies ?? [],
+          skinType: local.skinType,
+          hairType: local.hairType,
+          language: (local as any).language ?? "English",
         });
       }
-    });
+    })();
   }, [fetchProfile]);
 
   const addAllergy = () => {
@@ -84,18 +102,35 @@ function Onboarding() {
     setSaving(true);
     setError(null);
     try {
-      await saveProfile({
-        data: {
+      try {
+        await saveProfile({
+          data: {
+            allergies: form.allergies,
+            skin_type: form.skinType,
+            skin_notes: null,
+            hair_type: form.hairType,
+            hair_notes: null,
+            language: form.language,
+            completed: true,
+          },
+        });
+        navigate({ to: "/scan" });
+        return;
+      } catch (e) {
+        // If server save fails (likely due to missing auth), fall back to localStorage
+        saveLocalProfile({
           allergies: form.allergies,
-          skin_type: form.skinType,
-          skin_notes: null,
-          hair_type: form.hairType,
-          hair_notes: null,
+          skinType: form.skinType,
+          skinNotes: null,
+          hairType: form.hairType,
+          hairNotes: null,
           language: form.language,
           completed: true,
-        },
-      });
-      navigate({ to: "/scan" });
+          updatedAt: new Date().toISOString(),
+        });
+        navigate({ to: "/scan" });
+        return;
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {

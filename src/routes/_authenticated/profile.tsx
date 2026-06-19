@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppNav } from "@/components/AppNav";
 import { getMyProfile, type ProfileRow } from "@/lib/profile.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { loadProfile as loadLocalProfile } from "@/lib/profile-store";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -25,15 +25,36 @@ function ProfilePage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetchProfile()
-      .then(setProfile)
-      .finally(() => setLoaded(true));
-  }, [fetchProfile]);
+    (async () => {
+      try {
+        const p = await fetchProfile();
+        if (p) {
+          setProfile(p);
+          setLoaded(true);
+          return;
+        }
+      } catch (e) {
+        // ignore and fall back to local
+      }
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/auth";
-  };
+      // Fallback: load from localStorage
+      const local = loadLocalProfile();
+      if (local) {
+        const localRow = {
+          user_id: "local",
+          allergies: local.allergies ?? [],
+          skin_type: local.skinType,
+          skin_notes: local.skinNotes,
+          hair_type: local.hairType,
+          hair_notes: local.hairNotes,
+          language: (local as any).language ?? "English",
+          completed: !!local.completed,
+        } as ProfileRow;
+        setProfile(localRow);
+      }
+      setLoaded(true);
+    })();
+  }, [fetchProfile]);
 
   return (
     <div className="min-h-screen">
@@ -43,7 +64,7 @@ function ProfilePage() {
           Your profile
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Saved securely to your PurePicks account.
+          Your profile is saved locally on your device.
         </p>
 
         {!loaded && (
@@ -93,12 +114,6 @@ function ProfilePage() {
               >
                 Update profile
               </Link>
-              <button
-                onClick={signOut}
-                className="rounded-full border border-border bg-secondary/60 px-6 py-3 text-sm text-muted-foreground hover:text-foreground"
-              >
-                Sign out
-              </button>
             </div>
           </div>
         )}
