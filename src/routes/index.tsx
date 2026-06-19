@@ -46,7 +46,7 @@ function Index() {
               </p>
               <div className="mt-10 flex flex-wrap gap-3">
                 <Link
-                  to="/auth"
+                  to="/onboarding"
                   className="rounded-full bg-primary px-7 py-3.5 font-semibold text-primary-foreground transition hover:opacity-90 glow-ring"
                 >
                   Get started →

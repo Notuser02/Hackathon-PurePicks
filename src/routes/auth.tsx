@@ -15,7 +15,18 @@ export const Route = createFileRoute("/auth")({
       },
     ],
   }),
-  component: AuthPage,
+  component: () => {
+    return (
+      <div className="relative min-h-screen overflow-hidden grid-bg flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">No authentication required</p>
+          <Link to="/" className="mt-4 inline-block text-primary hover:underline">
+            Go home
+          </Link>
+        </div>
+      </div>
+    );
+  },
 });
 
 type Mode = "signin" | "signup";

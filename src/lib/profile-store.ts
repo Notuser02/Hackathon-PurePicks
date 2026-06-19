@@ -4,6 +4,8 @@ export type Profile = {
   skinNotes: string | null;
   hairType: string | null;
   hairNotes: string | null;
+  language?: string | null;
+  completed?: boolean;
   updatedAt: string;
 };
 
@@ -15,6 +17,8 @@ export const emptyProfile = (): Profile => ({
   skinNotes: null,
   hairType: null,
   hairNotes: null,
+  language: "English",
+  completed: false,
   updatedAt: new Date().toISOString(),
 });
 
