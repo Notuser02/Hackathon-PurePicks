@@ -7,6 +7,8 @@ const OPENAI_GATEWAY = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODEL = "gpt-4o-mini";
 const HUGGINGFACE_GATEWAY = "https://api-inference.huggingface.co/models";
 const HUGGINGFACE_TEXT_MODEL = "google/flan-t5-large";
+const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_GATEWAY = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 function getHuggingFaceResponseText(json: any) {
   if (!json) return "";
@@ -117,6 +119,83 @@ async function callOpenAI(body: unknown) {
   return json.choices?.[0]?.message?.content ?? "";
 }
 
+// Converts an OpenAI-style messages array into Gemini's contents + systemInstruction format.
+// Handles text parts and image_url parts (data URLs and http URLs).
+function buildGeminiRequest(body: any) {
+  const messages: any[] = Array.isArray(body?.messages) ? body.messages : [];
+
+  const systemParts: { text: string }[] = [];
+  const contents: { role: string; parts: any[] }[] = [];
+
+  for (const msg of messages) {
+    if (msg.role === "system") {
+      const text = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+      systemParts.push({ text });
+      continue;
+    }
+
+    const parts: any[] = [];
+    const contentItems = Array.isArray(msg.content)
+      ? msg.content
+      : [{ type: "text", text: msg.content }];
+
+    for (const item of contentItems) {
+      if (typeof item === "string") {
+        parts.push({ text: item });
+      } else if (item.type === "text") {
+        parts.push({ text: item.text ?? "" });
+      } else if (item.type === "image_url") {
+        const url: string = item.image_url?.url ?? "";
+        if (url.startsWith("data:")) {
+          // data:<mime>;base64,<data>
+          const [header, base64Data] = url.split(",");
+          const mimeType = header.replace("data:", "").replace(";base64", "");
+          parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+        } else {
+          // Public URL — use file_data (Gemini supports http/https URLs via file_data)
+          parts.push({ file_data: { mime_type: "image/jpeg", file_uri: url } });
+        }
+      }
+    }
+
+    // Gemini uses "user" / "model" roles (not "assistant")
+    const geminiRole = msg.role === "assistant" ? "model" : "user";
+    contents.push({ role: geminiRole, parts });
+  }
+
+  const request: any = { contents };
+  if (systemParts.length > 0) {
+    request.systemInstruction = { parts: systemParts };
+  }
+  return request;
+}
+
+async function callGemini(body: any) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("Gemini API key is not configured.");
+
+  const geminiBody = buildGeminiRequest(body);
+
+  const res = await fetch(`${GEMINI_GATEWAY}?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(geminiBody),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 429) throw new Error("Gemini rate limited. Try again shortly.");
+    if (res.status === 403) throw new Error("Gemini API key invalid or quota exceeded.");
+    console.error("Gemini gateway error", res.status, text);
+    throw new Error(`Gemini gateway error (${res.status})`);
+  }
+
+  const json = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  return json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
 async function callGateway(body: unknown) {
   if (process.env.LOVABLE_API_KEY) {
     return callLovable(body);
@@ -124,11 +203,14 @@ async function callGateway(body: unknown) {
   if (process.env.OPENAI_API_KEY) {
     return callOpenAI(body);
   }
+  if (process.env.GEMINI_API_KEY) {
+    return callGemini(body);
+  }
   if (process.env.HUGGINGFACE_API_KEY) {
     return callHuggingFace(body);
   }
   throw new Error(
-    "AI gateway is not configured. Set LOVABLE_API_KEY, OPENAI_API_KEY, or HUGGINGFACE_API_KEY in your environment."
+    "AI gateway is not configured. Set LOVABLE_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or HUGGINGFACE_API_KEY in your environment."
   );
 }
 
