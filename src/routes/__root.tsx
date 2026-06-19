@@ -134,11 +134,21 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function getOrCreateVisitorId(): string {
+  const key = 'purepicks_visitor_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    pendo.initialize({ visitor: { id: '' } });
+    pendo.initialize({ visitor: { id: getOrCreateVisitorId() } });
 
     const {
       data: { subscription },
