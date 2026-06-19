@@ -2,13 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const LOVABLE_GATEWAY = "https://openrouter.ai/api/v1/chat/completions";
-const LOVABLE_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free";
+const LOVABLE_MODEL = "openrouter/free";
+const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_GATEWAY = "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent";
 const OPENAI_GATEWAY = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODEL = "gpt-4o-mini";
 const HUGGINGFACE_GATEWAY = "https://api-inference.huggingface.co/models";
 const HUGGINGFACE_TEXT_MODEL = "google/flan-t5-large";
-const GEMINI_MODEL = "gemini-1.5-flash";
-const GEMINI_GATEWAY = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 function getHuggingFaceResponseText(json: any) {
   if (!json) return "";
