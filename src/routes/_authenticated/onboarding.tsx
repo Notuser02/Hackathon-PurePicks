@@ -114,6 +114,15 @@ function Onboarding() {
             completed: true,
           },
         });
+        if (typeof pendo !== "undefined") {
+          pendo.track("onboarding_completed", {
+            allergies_count: form.allergies.length,
+            skin_type: form.skinType || "",
+            hair_type: form.hairType || "",
+            language: form.language,
+            save_method: "server",
+          });
+        }
         navigate({ to: "/scan" });
         return;
       } catch (e) {
@@ -128,6 +137,15 @@ function Onboarding() {
           completed: true,
           updatedAt: new Date().toISOString(),
         });
+        if (typeof pendo !== "undefined") {
+          pendo.track("onboarding_completed", {
+            allergies_count: form.allergies.length,
+            skin_type: form.skinType || "",
+            hair_type: form.hairType || "",
+            language: form.language,
+            save_method: "localStorage",
+          });
+        }
         navigate({ to: "/scan" });
         return;
       }

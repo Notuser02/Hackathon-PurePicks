@@ -66,11 +66,23 @@ function AuthPage() {
           options: { emailRedirectTo: window.location.origin + "/onboarding" },
         });
         if (error) throw error;
+        if (typeof pendo !== "undefined") {
+          pendo.track("user_signed_up", {
+            method: "email",
+            email_domain: email.split("@")[1] || "",
+          });
+        }
         setInfo("Almost there! Check your inbox to confirm your email, then sign in.");
         setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        if (typeof pendo !== "undefined") {
+          pendo.track("user_signed_in", {
+            method: "email",
+            email_domain: email.split("@")[1] || "",
+          });
+        }
         navigate({ to: "/onboarding" });
       }
     } catch (err) {
@@ -90,6 +102,12 @@ function AuthPage() {
       setError(result.error.message);
       setBusy(false);
       return;
+    }
+    if (typeof pendo !== "undefined") {
+      pendo.track("google_oauth_initiated", {
+        provider: "google",
+        redirect_uri: window.location.origin + "/onboarding",
+      });
     }
     if (result.redirected) return;
     navigate({ to: "/onboarding" });

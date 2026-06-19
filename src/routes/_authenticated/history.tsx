@@ -106,6 +106,15 @@ function HistoryPage() {
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={() => {
+                      if (typeof pendo !== "undefined") {
+                        pendo.track("scan_favorited", {
+                          scan_id: e.id,
+                          action: e.favorite ? "unfavorited" : "favorited",
+                          category: e.category,
+                          verdict: e.result.verdict,
+                          product_name: (e.result.productName || "").substring(0, 64),
+                        });
+                      }
                       toggleFavorite(e.id);
                       refresh();
                     }}
@@ -115,6 +124,14 @@ function HistoryPage() {
                   </button>
                   <button
                     onClick={() => {
+                      if (typeof pendo !== "undefined") {
+                        pendo.track("scan_deleted", {
+                          scan_id: e.id,
+                          category: e.category,
+                          verdict: e.result.verdict,
+                          product_name: (e.result.productName || "").substring(0, 64),
+                        });
+                      }
                       deleteScan(e.id);
                       refresh();
                     }}
@@ -133,6 +150,12 @@ function HistoryPage() {
             <button
               onClick={() => {
                 if (confirm("Clear all scan history?")) {
+                  if (typeof pendo !== "undefined") {
+                    pendo.track("scan_history_cleared", {
+                      entries_count: entries.length,
+                      favorites_count: entries.filter((e) => e.favorite).length,
+                    });
+                  }
                   clearHistory();
                   refresh();
                 }
