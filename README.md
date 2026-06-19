@@ -18,7 +18,7 @@ An AI-powered ingredient scanner that tells you if skin, hair, or food products 
 - Update your profile anytime
 - Change language preferences
 - View account information
-- 
+  
 ## Supported Languages
 
 - 🇬🇧 English
