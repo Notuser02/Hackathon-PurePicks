@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../components/ThemeProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -110,11 +111,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const PENDO_SNIPPET = `(function(apiKey){
+    (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+    v=['initialize','identify','updateOptions','pageLoad','track','trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
+    o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+    y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';
+    z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+})('eb0d89cc-af0e-4d38-b9d1-cb4762f38c8f');`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: PENDO_SNIPPET }} />
       </head>
       <body>
         {children}
@@ -126,6 +136,46 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    pendo.initialize({ visitor: { id: '' } });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (
+        (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') &&
+        session?.user
+      ) {
+        const user = session.user;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        pendo.identify({
+          visitor: {
+            id: user.id,
+            email: user.email,
+            allergies: profile?.allergies ?? [],
+            skinType: profile?.skin_type ?? null,
+            hairType: profile?.hair_type ?? null,
+            language: profile?.language ?? null,
+            completed: profile?.completed ?? false,
+            createdAt: profile?.created_at ?? null,
+            updatedAt: profile?.updated_at ?? null,
+          },
+        });
+      }
+
+      if (event === 'SIGNED_OUT') {
+        pendo.clearSession();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
