@@ -98,8 +98,28 @@ function ScanPage() {
       setResult(r);
       addScanToHistory({ category, imageDataUrl: dataUrl, result: r });
       setSaved(true);
+      if (typeof pendo !== "undefined") {
+        pendo.track("product_scan_completed", {
+          category,
+          verdict: r.verdict,
+          product_name: (r.productName || "").substring(0, 64),
+          allergy_matches_count: r.allergyMatches.length,
+          flagged_count: r.flaggedIngredients.length,
+          alternatives_count: r.alternatives.length,
+          tips_count: r.lifestyleTips.length,
+          language: profile.language,
+        });
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Scan failed");
+      const errorMessage = e instanceof Error ? e.message : "Scan failed";
+      setError(errorMessage);
+      if (typeof pendo !== "undefined") {
+        pendo.track("product_scan_failed", {
+          category,
+          error_message: errorMessage.substring(0, 100),
+          language: profile.language,
+        });
+      }
     } finally {
       setLoading(false);
     }
