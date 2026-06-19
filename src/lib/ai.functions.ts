@@ -197,21 +197,37 @@ async function callGemini(body: any) {
 }
 
 async function callGateway(body: unknown) {
+  const providers: Array<{ name: string; fn: () => Promise<string> }> = [];
+
   if (process.env.LOVABLE_API_KEY) {
-    return callLovable(body);
+    providers.push({ name: "Lovable/OpenRouter", fn: () => callLovable(body) });
   }
   if (process.env.OPENAI_API_KEY) {
-    return callOpenAI(body);
+    providers.push({ name: "OpenAI", fn: () => callOpenAI(body) });
   }
   if (process.env.GEMINI_API_KEY) {
-    return callGemini(body);
+    providers.push({ name: "Gemini", fn: () => callGemini(body) });
   }
   if (process.env.HUGGINGFACE_API_KEY) {
-    return callHuggingFace(body);
+    providers.push({ name: "Hugging Face", fn: () => callHuggingFace(body) });
   }
-  throw new Error(
-    "AI gateway is not configured. Set LOVABLE_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or HUGGINGFACE_API_KEY in your environment."
-  );
+
+  if (providers.length === 0) {
+    throw new Error(
+      "AI gateway is not configured. Set LOVABLE_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or HUGGINGFACE_API_KEY in your environment."
+    );
+  }
+
+  let lastError: Error = new Error("All AI providers failed.");
+  for (const provider of providers) {
+    try {
+      return await provider.fn();
+    } catch (err) {
+      console.warn(`[AI] ${provider.name} failed, trying next provider...`, err);
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+  throw lastError;
 }
 
 function parseJson<T>(text: string): T {
