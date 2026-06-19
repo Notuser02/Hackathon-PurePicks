@@ -146,9 +146,15 @@ function getOrCreateVisitorId(): string {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
 
   useEffect(() => {
     pendo.initialize({ visitor: { id: getOrCreateVisitorId() } });
+
+    // Notify Novus on every SPA navigation so page views are tracked correctly
+    const unsubscribeRouter = router.subscribe('onResolved', () => {
+      pendo.pageLoad();
+    });
 
     const {
       data: { subscription },
@@ -184,7 +190,10 @@ function RootComponent() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      unsubscribeRouter();
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
