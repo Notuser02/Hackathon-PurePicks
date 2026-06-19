@@ -2,7 +2,7 @@
 
 **Know what's in everything you use.**
 
-An AI-powered ingredient scanner that tells you if skin, hair, or food products are safe for YOUR allergies and skin/hair type — instantly. Now with **multi-language support**, **user authentication**.
+An AI-powered ingredient scanner that tells you if skin, hair, or food products are safe for YOUR allergies and skin/hair type — instantly. Now with **multi-language support**, **Local Data Storage**.
 
 ## What's New in v1.0
 
@@ -11,17 +11,14 @@ An AI-powered ingredient scanner that tells you if skin, hair, or food products 
 - All ingredient analysis results are automatically translated
 - Ingredients detected in any language are translated to your choice
 
-### User Authentication
-- Create secure accounts with email/password
+### Data Storage
 - Profile data stored safely on your device
-- Login/signup flows with proper authentication
 
 ### Profile Management
 - Update your profile anytime
 - Change language preferences
 - View account information
-- Logout functionality
-
+- 
 ## Supported Languages
 
 - 🇬🇧 English
